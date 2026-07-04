@@ -1,0 +1,11 @@
+[project]
+name = "wordle-modal-grpo"
+version = "0.1.0"
+description = "Modal GRPO training for Wordle (Gemma-3 4B)"
+requires-python = ">=3.11"
+dependencies = [
+    "modal>=0.73.0",
+]
+
+[tool.uv]
+dev-dependencies = []
