@@ -29,8 +29,7 @@ from pathlib import Path
 
 import modal
 
-MODAL_GRPO_DIR = Path(__file__).resolve().parent
-REPO_ROOT = MODAL_GRPO_DIR.parent
+REPO_ROOT = Path(__file__).resolve().parent
 
 # --- Volume layout (matches Qwen3 reference) ---
 MODELS_DIR = Path("/models")
@@ -63,7 +62,7 @@ image = (
         {
             "HF_HOME": HF_HUB_CACHE_DIR,
             "TRANSFORMERS_CACHE": HF_HUB_CACHE_DIR,
-            "PYTHONPATH": "/app",
+            "PYTHONPATH": "/repo",
             "WANDB_PROJECT": "wordle-grpo-gemma",
         }
     )
@@ -77,10 +76,9 @@ image = (
             "experiments",
             "__pycache__",
             "*.npz",
-            "modal-grpo/.env",
+            ".env",
         ],
     )
-    .add_local_dir(str(MODAL_GRPO_DIR), remote_path="/app")
 )
 
 app = modal.App("wordle-grpo-gemma3-4b")
@@ -117,7 +115,7 @@ def train_grpo(
     import os
     import sys
 
-    sys.path.insert(0, "/app")
+    sys.path.insert(0, "/repo")
     os.chdir("/repo")
 
     if wandb_run_name:
