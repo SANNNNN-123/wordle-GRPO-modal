@@ -612,6 +612,22 @@ def play_wordle_game(
                 )
             )
 
+        if print_debug and not is_eval and len(current_turn_attempts) >= 2:
+            # Mirror build_grpo_pairs: the GRPO winner is the highest training_reward
+            # among the generations for this prompt; everyone else is a loser.
+            ranked = sorted(current_turn_attempts, key=lambda a: a.training_reward, reverse=True)
+            winner = ranked[0]
+            print(
+                f"    GRPO pair -> winner: guess={winner.parsed_guess} "
+                f"reward={winner.training_reward:.2f}"
+            )
+            for loser in ranked[1:]:
+                print(
+                    f"              loser:  guess={loser.parsed_guess} "
+                    f"reward={loser.training_reward:.2f} "
+                    f"(margin={winner.training_reward - loser.training_reward:.2f})"
+                )
+
         valid_candidates = [
             att
             for att in current_turn_attempts
