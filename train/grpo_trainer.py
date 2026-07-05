@@ -18,7 +18,7 @@ from torch.optim import AdamW
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from wordle_core import (
+from train.wordle_core import (
     TrainConfig,
     build_grpo_pairs,
     load_train_config,
@@ -164,6 +164,13 @@ def run_training(
     answers_words = sorted(load_word_list(repo_root / "data" / "nyt_answers_wordle_list.txt"))
 
     tokenizer = AutoTokenizer.from_pretrained(config.model_name, trust_remote_code=True)
+    # Mirror the MLX trainer: Gemma ends an assistant turn with <end_of_turn>, so
+    # generation should stop there. Without this, sampled rollouts can ramble past
+    # the guess and/or never emit a clean <guess>WORD</guess> block.
+    try:
+        tokenizer.eos_token_id = tokenizer.get_vocab()["<end_of_turn>"]
+    except KeyError:
+        print("Warning: '<end_of_turn>' token not found. Using default EOS.")
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
@@ -210,7 +217,7 @@ def run_training(
             answers_words=answers_words,
             device=device,
             initial_history=sample["messages"][1]["content"],
-            print_debug=(step % config.log_steps == 0),
+            print_debug=(step % config.log_steps == 0 or step == 1),
         )
 
         win_tracker.append(1 if rollout.solved else 0)

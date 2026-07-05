@@ -2,7 +2,7 @@
 Modal entrypoint for Wordle GRPO training (Gemma-3 4B).
 
 Uses the **Gemma repo's custom DPO-style GRPO** (winner/loser pairs + KL penalty)
-from grpo_trainer.py — NOT TRL's GRPOTrainer used in modal-run-grpo-Qwen3-1.7B.py.
+from train/grpo_trainer.py — NOT TRL's GRPOTrainer used in train/modal-run-grpo-Qwen3-1.7B.py.
 
 Modal infrastructure follows the Qwen3 reference:
   - separate checkpoints + HF-cache volumes
@@ -11,11 +11,11 @@ Modal infrastructure follows the Qwen3 reference:
 
 Run (recommended — Qwen-style, invoke function directly):
     cd modal-grpo
-    uv run modal run --detach modal-run-grpo-Gemma3-4b.py::train_grpo \\
+    uv run modal run --detach train/modal-run-grpo-Gemma3-4b.py::train_grpo \\
       --iterations 100 --wandb-run-name my-run
 
 Run (alternate — via local entrypoint):
-    uv run modal run --detach modal-run-grpo-Gemma3-4b.py --iterations 100
+    uv run modal run --detach train/modal-run-grpo-Gemma3-4b.py --iterations 100
 
 Prerequisites:
     pip install modal && modal setup
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import modal
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # --- Volume layout (matches Qwen3 reference) ---
 MODELS_DIR = Path("/models")
@@ -121,7 +121,7 @@ def train_grpo(
     if wandb_run_name:
         os.environ["WANDB_NAME"] = wandb_run_name
 
-    from grpo_trainer import run_training
+    from train.grpo_trainer import run_training
 
     run_id = __import__("datetime").datetime.now().strftime("%Y%m%d-%H%M%S")
     model_short = model.split("/")[-1]
@@ -167,7 +167,7 @@ def main(
     """
     Convenience wrapper — prefer invoking train_grpo directly (Qwen-style):
 
-        uv run modal run --detach modal-run-grpo-Gemma3-4b.py::train_grpo \\
+        uv run modal run --detach train/modal-run-grpo-Gemma3-4b.py::train_grpo \\
           --iterations 100 --wandb-run-name my-run
     """
     print(f"Launching GRPO (Gemma-3 4B) on Modal gpu={gpu}...")
