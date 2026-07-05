@@ -12,7 +12,7 @@ from peft import PeftModel
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from wordle_core import (
+from train.wordle_core import (
     TrainConfig,
     load_train_config,
     load_word_entropy,
