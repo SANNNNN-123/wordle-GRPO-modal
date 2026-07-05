@@ -497,20 +497,40 @@ def generate_responses(
     temperature: float,
     device: torch.device,
 ) -> list[str]:
-    inputs = tokenizer(prompt_string, return_tensors="pt").to(device)
+    # The chat template already injects Gemma's special tokens (<bos>, <start_of_turn>,
+    # etc.). Passing add_special_tokens=True here prepends a SECOND <bos>, which Gemma
+    # is very sensitive to and can push sampled decoding into degenerate token loops.
+    inputs = tokenizer(prompt_string, return_tensors="pt", add_special_tokens=False).to(device)
     gen_kwargs: dict = {
         "max_new_tokens": max_new_tokens,
         "num_return_sequences": num_generations,
         "pad_token_id": tokenizer.pad_token_id,
+        # Stop at end-of-turn so rollouts don't ramble past the guess.
+        "eos_token_id": tokenizer.eos_token_id,
     }
     # Eval uses temperature=0 (greedy). Newer transformers rejects temp=0 with do_sample=True.
     if temperature <= 0.0:
         gen_kwargs["do_sample"] = False
     else:
+        # Bare temperature sampling on Gemma 3 collapses into '<<<>>>' special-token
+        # spam. Constrain the distribution the way the MLX sampler / HF recommend:
+        # nucleus + top-k + a mild repetition penalty.
         gen_kwargs["do_sample"] = True
         gen_kwargs["temperature"] = temperature
+        gen_kwargs["top_p"] = 0.95
+        gen_kwargs["top_k"] = 64
+        gen_kwargs["repetition_penalty"] = 1.1
 
-    outputs = model.generate(**inputs, **gen_kwargs)
+    # Rollouts should generate with dropout OFF (the policy is otherwise in train()
+    # mode for the GRPO backward pass). Restore the prior mode afterwards.
+    was_training = model.training
+    model.eval()
+    try:
+        outputs = model.generate(**inputs, **gen_kwargs)
+    finally:
+        if was_training:
+            model.train()
+
     prompt_len = inputs["input_ids"].shape[1]
     responses = []
     for seq in outputs:
@@ -541,7 +561,9 @@ def play_wordle_game(
     for attempt_num in range(len(past_feedback), config.max_trials):
         messages = format_prompt_for_model(past_feedback, SYSTEM_PROMPT)
         prompt_string = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        prompt_tokens = tokenizer.encode(prompt_string)
+        # add_special_tokens=False: the chat template already contains <bos>; avoid a
+        # double <bos> in the tokens fed to the GRPO loss.
+        prompt_tokens = tokenizer.encode(prompt_string, add_special_tokens=False)
 
         generations = generate_responses(
             model,
@@ -583,7 +605,7 @@ def play_wordle_game(
                     prompt_string=prompt_string,
                     prompt_tokens=prompt_tokens,
                     full_response=response,
-                    response_tokens=tokenizer.encode(response),
+                    response_tokens=tokenizer.encode(response, add_special_tokens=False),
                     parsed_guess=guess,
                     game_score=game_score,
                     training_reward=training_reward,
