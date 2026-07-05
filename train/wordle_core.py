@@ -567,7 +567,17 @@ def play_wordle_game(
                 answers_words,
             )
             if print_debug:
-                print(f"  [Gen {i + 1}/{num_generations}] guess={guess} reward={training_reward:.2f}")
+                num_resp_tokens = len(tokenizer.encode(response))
+                has_open = "<guess>" in response.lower()
+                has_close = "</guess>" in response.lower()
+                print(
+                    f"  [Gen {i + 1}/{num_generations}] guess={guess} reward={training_reward:.2f} "
+                    f"| tokens={num_resp_tokens} guess_tag(open/close)={has_open}/{has_close}"
+                )
+                if guess is None:
+                    # Surface why parsing failed: show the tail where the guess should be.
+                    print(f"    RAW[:800]: {response[:800]!r}")
+                    print(f"    RAW[-300:]: {response[-300:]!r}")
             current_turn_attempts.append(
                 GenerationAttempt(
                     prompt_string=prompt_string,
