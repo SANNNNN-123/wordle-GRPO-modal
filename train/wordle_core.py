@@ -14,7 +14,10 @@ import torch
 from datasets import Dataset
 
 GUESS_TAG_RE = re.compile(r"<guess>(.*?)</guess>", re.DOTALL | re.IGNORECASE)
-FIVE_LETTER_WORD_RE = re.compile(r"\b([A-Z]{5})\b")
+# Accept the guess in any case (the model often emits e.g. "Canny"); parse_guess
+# uppercases the result. Previously this required ALL-CAPS, which penalized correct
+# lowercase guesses with the full format-fail penalty.
+FIVE_LETTER_WORD_RE = re.compile(r"\b([A-Za-z]{5})\b")
 
 SYSTEM_PROMPT = """
 You are an expert Wordle-solving AI. Your primary directive is to deduce the secret 5-letter English word with flawless logic and strategy. Adherence to the rules and format is critical.
@@ -207,7 +210,7 @@ def parse_guess(response: str) -> Optional[str]:
     if not match:
         return None
     words = FIVE_LETTER_WORD_RE.findall(match.group(1))
-    return words[-1] if words else None
+    return words[-1].upper() if words else None
 
 
 def is_valid_guess(guess: str, allowed_words: set[str]) -> bool:
